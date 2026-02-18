@@ -1,222 +1,313 @@
 # Auto-Annotation Platform
 
-An intelligent annotation platform that uses **active learning** and **few-shot learning** to minimize annotation effort while maximizing model performance.
+An intelligent annotation platform that uses **active learning** and **few-shot learning** to minimize manual annotation effort while maximizing model performance. Annotate a small subset of images, train a model, and let it auto-annotate the rest.
 
-## 🌟 Features
+---
 
-- **📊 Active Learning**: Intelligently selects most informative images for annotation
-- **🤖 Few-Shot Learning**: Train high-quality models with minimal data (50-100 images)
-- **⚡ Auto-Annotation**: Automatically annotate remaining images with trained model
-- **🎨 Simple UI**: Clean Streamlit interface for easy workflow
-- **📦 Export**: Export in YOLO and COCO formats
-- **🐳 Docker Ready**: Full Docker Compose setup for easy deployment
+## Features
 
-## 🏗️ Architecture
+- **Active Learning** — Intelligently selects the most informative images for annotation
+- **Few-Shot Training** — Train high-quality YOLOv8 models with minimal data (50-100 images)
+- **Auto-Annotation** — Automatically annotate remaining images using the trained model
+- **Canvas Annotation** — Draw bounding boxes directly in the browser with keyboard shortcuts
+- **Embedding-Based Selection** — CLIP embeddings + FAISS for smart sample selection
+- **Export** — Export annotations in YOLO and COCO formats
+- **Docker Ready** — Full Docker Compose setup for single-command deployment
 
-**Backend** (FastAPI):
-- Project management API
-- Image upload and processing
-- Embedding generation (CLIP)
-- Active learning sample selection
-- YOLOv8 training pipeline
-- Auto-annotation engine
-- Export to multiple formats
+---
 
-**Frontend** (Streamlit):
-- Multi-page app with clean UI
-- Project creation and management
-- Image upload and class definition
-- Active learning-based annotation
-- Training monitoring
-- Review and export
+## Architecture
 
-**Core Modules**:
-1. Dataset Processor - Image validation and storage
-2. Embedding Generator - CLIP + FAISS vector store
-3. Active Learning - 3 selection strategies
-4. Training Pipeline - YOLOv8 few-shot learning
-5. Auto-Annotator - Batch inference
-6. Export Module - YOLO/COCO formats
+```
+                  +-------------+
+                  |  PostgreSQL |
+                  +------+------+
+                         |
++--------+        +------+------+        +--------+
+| Browser | <---> |   Backend   | <----> | Redis  |
+|  (SPA)  |       |  (FastAPI)  |        +---+----+
++--------+        +------+------+            |
+                         |              +----+-------+
+                         +--------------| Celery     |
+                                        | Worker     |
+                                        +------------+
+```
 
-## 🚀 Quick Start
+| Component | Role |
+|-----------|------|
+| **Backend (FastAPI)** | REST API, static frontend serving, project management |
+| **Celery Worker** | Background tasks: embedding generation, training, auto-annotation |
+| **PostgreSQL** | Persistent storage for projects, images, annotations, classes |
+| **Redis** | Celery message broker |
+| **Frontend (Vanilla JS)** | Single-page application served by the backend |
+
+### Core Modules
+
+| Module | Description |
+|--------|-------------|
+| Dataset Processor | Image validation, resizing, and organized storage |
+| Embedding Generator | CLIP feature extraction + FAISS vector indexing |
+| Active Learning | 3 selection strategies (max distance, clustering, random) |
+| Training Pipeline | YOLOv8 few-shot fine-tuning via Ultralytics |
+| Auto-Annotator | Batch inference on unannotated images |
+| Export Module | YOLO and COCO format generation |
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
 - Docker and Docker Compose
-- (Optional) NVIDIA Docker for GPU support
+- (Optional) NVIDIA Container Toolkit for GPU acceleration
 
-### 1. Clone and Setup
+### 1. Clone and Configure
 
 ```bash
-cd /home/Stark/Auto_Annotation
+git clone <repository-url>
+cd Auto_Annotation
 cp .env.example .env
 ```
+
+Edit `.env` if needed (defaults work out of the box).
 
 ### 2. Start Services
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-This will start:
-- PostgreSQL database (port 5432)
-- Redis (port 6379)
-- Backend API (port 8000)
-- Celery worker
-- Streamlit frontend (port 8501)
+This starts 4 containers:
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `postgres` | 5432 | Database |
+| `redis` | 6379 | Task broker |
+| `backend` | **8000** | API + Frontend |
+| `celery_worker` | — | Background tasks |
 
 ### 3. Initialize Database
 
 ```bash
-docker-compose exec backend python scripts/init_db.py
+docker compose exec backend python scripts/init_db.py
 ```
 
-### 4. Access the Platform
+### 4. Open the Platform
 
-- **Streamlit UI**: http://localhost:8501
-- **API Docs**: http://localhost:8000/docs
+Navigate to **http://localhost:8000** in your browser.
 
-## 📖 Usage Workflow
+API documentation is available at **http://localhost:8000/docs**.
 
-### 1. Create Project
-- Go to Projects page
-- Click "Create New Project"
-- Enter project name and description
+---
 
-### 2. Upload Images
-- Go to Upload page
-- Define your classes (e.g., "person", "car", "dog")
-- Upload image files
-- Generate embeddings
+## Usage Workflow
 
-### 3. Annotate Images
-- Go to Annotate page
-- Click "Select Next Batch" (active learning chooses best images)
-- Annotate the selected images
-- Repeat until you have 50-100 annotations
+### Step 1: Create a Project
 
-### 4. Train Model
-- Go to Train page
-- Configure epochs and batch size
-- Click "Start Training"
-- Wait for training to complete (10-30 minutes)
+- Open the **Projects** page
+- Click **"+ New Project"**
+- Enter a name and optional description
 
-### 5. Auto-Annotate
-- On Train page, click "Auto-Annotate Remaining Images"
-- Model will annotate all unannotated images
-- Review results on Review page
+### Step 2: Upload Images and Define Classes
 
-### 6. Export
-- Go to Review page
-- Export in YOLO or COCO format
-- Use the exported dataset for production training
+- Navigate to the **Upload** page
+- Define annotation classes (e.g., "car", "person", "truck") with colors
+- Drag and drop images or click to upload
+- Click **"Generate Embeddings"** to compute CLIP features for active learning
 
-## 🔧 Development
+### Step 3: Annotate Images
 
-### Local Development (without Docker)
+- Go to the **Annotate** page
+- Click **"Get Next Batch"** to let active learning select the most informative images
+- Draw bounding boxes on images using click-and-drag
+- Select classes via the sidebar or keyboard shortcuts (1-9)
+- Click **"Save"** to persist annotations
+- Repeat until you have 50-100 annotated images
 
-1. **Backend**:
+### Step 4: Train the Model
+
+- Navigate to the **Train** page
+- Check **Training Readiness** (annotated images count, classes)
+- Configure epochs (default: 50) and batch size (default: 16)
+- Click **"Start Training"**
+- Monitor progress in the terminal-style log panel
+
+### Step 5: Auto-Annotate Remaining Images
+
+- On the **Train** page, set a confidence threshold
+- Click **"Auto-Annotate Remaining"**
+- The trained model will annotate all unannotated images
+
+### Step 6: Review and Export
+
+- Go to the **Review** page
+- Inspect dataset statistics and preview annotated images
+- Export in **YOLO** or **COCO** format for production training
+
+---
+
+## Project Structure
+
+```
+Auto_Annotation/
+├── backend/
+│   ├── api/                  # FastAPI application
+│   │   ├── main.py           # App entry point, static file serving
+│   │   ├── routes/           # API route handlers
+│   │   └── schemas.py        # Pydantic request/response models
+│   ├── core/                 # Core ML modules
+│   │   ├── active_learning.py
+│   │   ├── auto_annotator.py
+│   │   ├── dataset_processor.py
+│   │   ├── embedding_generator.py
+│   │   ├── export_manager.py
+│   │   └── training_pipeline.py
+│   ├── db/                   # Database layer
+│   │   ├── models.py         # SQLAlchemy models
+│   │   ├── crud.py           # Database operations
+│   │   └── database.py       # Connection setup
+│   ├── tasks/                # Celery background tasks
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/
+│   └── static/               # Vanilla JS single-page application
+│       ├── index.html        # SPA shell
+│       ├── css/style.css     # Light minimal theme
+│       └── js/
+│           ├── app.js        # Router and global state
+│           ├── api.js        # Backend API client
+│           ├── components/   # Canvas, task tracker
+│           └── pages/        # Page modules (projects, upload, annotate, train, review)
+├── data/                     # Uploaded images and datasets (volume-mounted)
+├── models/                   # Trained model weights
+├── scripts/                  # Database initialization
+├── docker-compose.yml
+├── .env.example
+└── start.sh
+```
+
+---
+
+## Technology Stack
+
+| Category | Technologies |
+|----------|-------------|
+| **Backend** | Python 3.11, FastAPI, SQLAlchemy, PostgreSQL, Celery, Redis |
+| **ML / CV** | PyTorch, Ultralytics YOLOv8, OpenAI CLIP, FAISS |
+| **Frontend** | Vanilla JavaScript, HTML5 Canvas, CSS |
+| **Deployment** | Docker, Docker Compose |
+
+---
+
+## Development
+
+### Running Without Docker
+
+**Backend:**
 
 ```bash
 cd backend
 pip install -r requirements.txt
 
-# Set environment variables
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/auto_annotation"
 export REDIS_URL="redis://localhost:6379/0"
 
-# Run API
-uvicorn api.main:app --reload
+# Start API server
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 
-# Run Celery worker (in another terminal)
+# Start Celery worker (separate terminal)
 celery -A tasks.celery_app worker --loglevel=info
 ```
 
-2. **Frontend**:
+**Database:**
 
 ```bash
-cd frontend
-pip install -r requirements.txt
-
-# Set backend URL
-export BACKEND_URL="http://localhost:8000"
-
-# Run Streamlit
-streamlit run app.py
+# Start PostgreSQL and Redis locally, then initialize
+python scripts/init_db.py
 ```
 
-## 📁 Project Structure
+The frontend is served automatically by FastAPI from `frontend/static/`.
 
-```
-Auto_Annotation/
-├── backend/
-│   ├── api/              # FastAPI routes
-│   ├── core/             # 9 core modules
-│   ├── db/               # Database models
-│   └── tasks/            # Celery tasks
-├── frontend/
-│   ├── pages/            # Streamlit pages
-│   └── utils/            # API client
-├── data/                 # User data storage
-├── models/               # Model weights
-├── scripts/              # Helper scripts
-└── docker-compose.yml    # Deploy stack
-```
+### Common Docker Commands
 
-## 🎯 Key Technologies
-
-- **Backend**: FastAPI, SQLAlchemy, PostgreSQL, Celery, Redis
-- **ML/CV**: PyTorch, Ultralytics YOLOv8, CLIP, FAISS
-- **Frontend**: Streamlit
-- **Deployment**: Docker, Docker Compose
-
-## 📊 Expected Results
-
-- **Annotation Efficiency**: 80-90% reduction in manual annotation
-- **Model Quality**: Comparable to full dataset with 10x less annotations
-- **Time Savings**: Hours instead of days for dataset creation
-
-## 🐛 Troubleshooting
-
-### Backend not connecting to database
 ```bash
-docker-compose logs postgres
-docker-compose restart backend
+# Start all services
+docker compose up -d
+
+# Stop all services
+docker compose down
+
+# Restart backend after code changes
+docker compose restart backend celery_worker
+
+# View logs
+docker compose logs -f backend
+docker compose logs -f celery_worker
+
+# Rebuild after Dockerfile or dependency changes
+docker compose up -d --build
 ```
-
-### Celery tasks not running
-```bash
-docker-compose logs celery_worker
-docker-compose restart celery_worker
-```
-
-### Frontend can't reach backend
-- Check backend is running: http://localhost:8000
-- Check BACKEND_URL environment variable
-- Check CORS settings in backend
-
-## 🔮 Future Enhancements
-
-- [ ] Advanced annotation canvas with drawing tools
-- [ ] Multi-user support with authentication
-- [ ] Model comparison dashboard
-- [ ] Segmentation support (not just detection)
-- [ ] Active learning with uncertainty sampling
-- [ ] Integration with cloud storage (S3, GCS)
-- [ ] Kubernetes deployment templates
-
-## 📝 License
-
-MIT License
-
-## 🤝 Contributing
-
-Contributions welcome! Please feel free to submit issues and pull requests.
-
-## 📧 Support
-
-For questions and support, please open an issue on the repository.
 
 ---
 
-**Built with ❤️ using Python, FastAPI, Streamlit, and YOLOv8**
+## Troubleshooting
+
+**Backend not connecting to database:**
+
+```bash
+docker compose logs postgres
+docker compose restart backend
+```
+
+**Celery tasks not running:**
+
+```bash
+docker compose logs celery_worker
+docker compose restart celery_worker
+```
+
+**Training Readiness shows 0 annotated images:**
+
+Make sure you click **"Save"** on the Annotate page after drawing bounding boxes. Annotations are only persisted when explicitly saved.
+
+**Embeddings not generating:**
+
+Check that the Celery worker is running and has network access to download the CLIP model on first use.
+
+---
+
+## Expected Results
+
+| Metric | Typical Value |
+|--------|--------------|
+| Annotation reduction | 80-90% fewer manual annotations needed |
+| Model quality | Comparable to full-dataset training with 10x fewer labels |
+| Time savings | Hours instead of days for dataset creation |
+
+---
+
+## Future Enhancements
+
+- [ ] GPU support for training and inference
+- [ ] Multi-user support with authentication
+- [ ] Polygon and segmentation annotation tools
+- [ ] Model comparison dashboard
+- [ ] Uncertainty sampling strategy
+- [ ] Cloud storage integration (S3, GCS)
+- [ ] Kubernetes deployment manifests
+
+---
+
+## License
+
+MIT License
+
+---
+
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss proposed changes before submitting a pull request.
+
+---
+
+Built with Python, FastAPI, YOLOv8, and CLIP.
