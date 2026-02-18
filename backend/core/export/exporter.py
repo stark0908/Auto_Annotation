@@ -75,7 +75,7 @@ class AnnotationExporter:
             for cls in classes:
                 f.write(f"{cls['name']}\n")
         
-        print(f"✅ Exported YOLO format to {export_path}")
+        print(f"Exported YOLO format to {export_path}")
         return str(export_path)
     
     def export_coco(
@@ -148,5 +148,5 @@ class AnnotationExporter:
         with open(output_path, "w") as f:
             json.dump(coco_data, f, indent=2)
         
-        print(f"✅ Exported COCO format to {output_path}")
+        print(f"Exported COCO format to {output_path}")
         return str(output_path)

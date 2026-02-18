@@ -45,9 +45,9 @@ if FRONTEND_DIR.exists():
 @app.on_event("startup")
 def startup():
     """Initialize database on startup."""
-    print("🚀 Starting Auto-Annotation Platform API...")
+    print("Starting Auto-Annotation Platform API...")
     init_db()
-    print("✅ Database initialized!")
+    print("Database initialized!")
 
 
 @app.get("/")

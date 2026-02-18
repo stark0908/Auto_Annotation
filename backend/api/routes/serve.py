@@ -21,6 +21,13 @@ def serve_image(image_id: str, db: Session = Depends(get_db)):
     
     file_path = Path(image.file_path)
     if not file_path.exists():
+        # Handle path mismatch from old DB entries
+        from config import settings
+        parts = str(file_path).replace('\\', '/')
+        if 'projects/' in parts:
+            rel = parts[parts.index('projects/'):]
+            file_path = Path(settings.DATA_DIR) / rel
+    if not file_path.exists():
         raise HTTPException(status_code=404, detail="Image file not found on disk")
     
     # Determine media type

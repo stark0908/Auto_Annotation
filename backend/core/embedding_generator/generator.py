@@ -21,7 +21,7 @@ class EmbeddingGenerator:
         Using CLIP by default - works great for general images.
         """
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"🔧 Loading {model_name} on {self.device}...")
+        print(f"Loading {model_name} on {self.device}...")
         
         # Load CLIP model
         self.model = CLIPModel.from_pretrained(model_name).to(self.device)
@@ -30,7 +30,7 @@ class EmbeddingGenerator:
         
         self.embedding_dim = 512  # CLIP ViT-Base outputs 512-dim vectors
         
-        print(f"✅ Model loaded! Embedding dimension: {self.embedding_dim}")
+        print(f"Model loaded! Embedding dimension: {self.embedding_dim}")
     
     def generate_embedding(self, image_path: str) -> np.ndarray:
         """
@@ -111,7 +111,7 @@ class FAISSVectorStore:
         # For larger datasets, could use IndexIVFFlat for speed
         self.index = faiss.IndexFlatL2(self.embedding_dim)
         self.image_ids = []  # Map FAISS index to image IDs
-        print(f"✅ Created new FAISS index (dim={self.embedding_dim})")
+        print(f"Created new FAISS index (dim={self.embedding_dim})")
     
     def add_embeddings(self, embeddings: np.ndarray, image_ids: List[str]):
         """Add embeddings to the index."""
@@ -122,7 +122,7 @@ class FAISSVectorStore:
         self.index.add(embeddings)
         self.image_ids.extend(image_ids)
         
-        print(f"✅ Added {len(image_ids)} embeddings to index")
+        print(f"Added {len(image_ids)} embeddings to index")
     
     def save_index(self):
         """Save index and ID mapping to disk."""

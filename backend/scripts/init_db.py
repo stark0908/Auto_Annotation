@@ -9,6 +9,6 @@ sys.path.insert(0, '/app')  # For Docker environment
 from db.database import init_db
 
 if __name__ == "__main__":
-    print("🔧 Initializing database...")
+    print("Initializing database...")
     init_db()
-    print("✅ Database initialized successfully!")
+    print("Database initialized successfully!")

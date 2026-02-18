@@ -12,6 +12,21 @@ from core.training import FewShotTrainer
 from core.auto_annotator import AutoAnnotator
 from pathlib import Path
 
+
+def resolve_image_path(file_path: str) -> str:
+    """Resolve image path, handling mismatches between stored and actual paths."""
+    p = Path(file_path)
+    if p.exists():
+        return str(p)
+    # Reconstruct from DATA_DIR
+    parts = str(p).replace('\\', '/')
+    if 'projects/' in parts:
+        rel = parts[parts.index('projects/'):]
+        resolved = Path(settings.DATA_DIR) / rel
+        if resolved.exists():
+            return str(resolved)
+    return file_path
+
 # Initialize Celery
 celery_app = Celery(
     "auto_annotation",
@@ -49,10 +64,10 @@ def generate_embeddings_task(self, project_id: str, model_name: str = "openai/cl
             vector_store = FAISSVectorStore(project_id, generator.embedding_dim)
             
             # Generate embeddings
-            image_paths = [img.file_path for img in images]
+            image_paths = [resolve_image_path(img.file_path) for img in images]
             image_ids = [img.id for img in images]
             
-            print(f"📊 Generating embeddings for {len(images)} images...")
+            print(f"Generating embeddings for {len(images)} images...")
             embeddings = generator.generate_batch_embeddings(image_paths, batch_size=32)
             
             # Add to FAISS
@@ -73,7 +88,7 @@ def generate_embeddings_task(self, project_id: str, model_name: str = "openai/cl
             }
     
     except Exception as e:
-        print(f"❌ Error generating embeddings: {e}")
+        print(f"Error generating embeddings: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -142,7 +157,7 @@ def train_model_task(self, project_id: str, epochs: int = 50, batch_size: int = 
             }
     
     except Exception as e:
-        print(f"❌ Error training model: {e}")
+        print(f"Error training model: {e}")
         return {"status": "error", "message": str(e)}
 
 
@@ -171,7 +186,9 @@ def auto_annotate_task(self, project_id: str, confidence_threshold: float = 0.25
             
             # Auto-annotate
             annotator = AutoAnnotator(model_path)
-            image_paths = [img.file_path for img in images]
+            # Build resolved path mapping
+            resolved_paths = {img.id: resolve_image_path(img.file_path) for img in images}
+            image_paths = list(resolved_paths.values())
             
             results = annotator.annotate_batch(image_paths, confidence_threshold)
             
@@ -182,7 +199,8 @@ def auto_annotate_task(self, project_id: str, confidence_threshold: float = 0.25
             # Save annotations
             total_annotations = 0
             for img in images:
-                annotations = results.get(img.file_path, [])
+                resolved = resolved_paths[img.id]
+                annotations = results.get(resolved, [])
                 
                 for ann in annotations:
                     # Map model class idx to DB class id
@@ -214,5 +232,5 @@ def auto_annotate_task(self, project_id: str, confidence_threshold: float = 0.25
             }
     
     except Exception as e:
-        print(f"❌ Error auto-annotating: {e}")
+        print(f"Error auto-annotating: {e}")
         return {"status": "error", "message": str(e)}
