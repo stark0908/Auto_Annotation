@@ -20,7 +20,28 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db():
-    """Initialize database - create all tables."""
+    """Initialize database - create all tables and migrate enums."""
+    # Migrate enums for existing databases
+    try:
+        with engine.connect() as conn:
+            # Add 'corrected' to imagestatus enum if it doesn't exist
+            result = conn.execute(
+                __import__('sqlalchemy').text(
+                    "SELECT 1 FROM pg_enum WHERE enumlabel = 'corrected' "
+                    "AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'imagestatus')"
+                )
+            )
+            if not result.fetchone():
+                conn.execute(
+                    __import__('sqlalchemy').text(
+                        "ALTER TYPE imagestatus ADD VALUE IF NOT EXISTS 'corrected'"
+                    )
+                )
+                conn.commit()
+                print("Added 'corrected' to imagestatus enum")
+    except Exception as e:
+        print(f"Enum migration skipped: {e}")
+    
     Base.metadata.create_all(bind=engine)
     print("Database initialized!")
 

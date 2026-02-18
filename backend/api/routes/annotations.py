@@ -65,8 +65,11 @@ def create_annotation(annotation: AnnotationCreate, db: Session = Depends(get_db
         source=annotation.source
     )
     
-    # Update image status to annotated (if manual annotation)
-    if annotation.source == "manual":
+    
+    # Update image status based on source
+    if annotation.source == "corrected":
+        crud.update_image_status(db, annotation.image_id, ImageStatus.CORRECTED)
+    elif annotation.source == "manual":
         crud.update_image_status(db, annotation.image_id, ImageStatus.ANNOTATED)
     
     return ann
@@ -105,8 +108,10 @@ def create_batch_annotations(annotations: List[AnnotationCreate], db: Session = 
         )
         created.append(db_ann.id)
         
-        # Update image status
-        if ann.source == "manual":
+        # Update image status based on source
+        if ann.source == "corrected":
+            crud.update_image_status(db, ann.image_id, ImageStatus.CORRECTED)
+        elif ann.source == "manual":
             crud.update_image_status(db, ann.image_id, ImageStatus.ANNOTATED)
     
     return {

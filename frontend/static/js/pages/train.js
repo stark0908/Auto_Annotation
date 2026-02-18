@@ -60,14 +60,40 @@ function renderTrainPage() {
         <!-- Training Logs -->
         <div class="card section">
             <h3>Training Logs</h3>
+            <div id="training-status" style="margin-bottom:8px;"></div>
             <div id="training-logs" class="terminal-output">
                 <span class="terminal-muted">No training logs yet. Start training to see output here.</span>
             </div>
         </div>
 
+        <!-- Training Metrics Table -->
+        <div class="card section" id="metrics-table-section" style="display:none;">
+            <h3>Epoch Metrics</h3>
+            <div style="overflow-x:auto;">
+                <table id="metrics-table" class="metrics-table">
+                    <thead>
+                        <tr>
+                            <th>Epoch</th>
+                            <th>Box Loss</th>
+                            <th>Cls Loss</th>
+                            <th>DFL Loss</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>mAP50</th>
+                            <th>mAP50-95</th>
+                            <th>V-Box</th>
+                            <th>V-Cls</th>
+                            <th>V-DFL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="metrics-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Training Metrics Graph -->
         <div class="card section" id="metrics-graph-section" style="display:none;">
-            <h3>Training Metrics</h3>
+            <h3>Training Progress</h3>
             <canvas id="metrics-canvas" width="800" height="300"></canvas>
         </div>
     `;
@@ -137,8 +163,11 @@ async function startTraining() {
         TaskTracker.add('Training', result.task_id);
         showToast('Training started', 'info');
 
-        // Start polling logs
+        // Clear previous metrics
         logsEl.innerHTML = '<span class="terminal-muted">Training starting...</span>\n';
+        const tbody = document.getElementById('metrics-tbody');
+        if (tbody) tbody.innerHTML = '';
+
         startLogPolling(result.task_id);
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
@@ -148,27 +177,69 @@ async function startTraining() {
 function startLogPolling(taskId) {
     if (trainingLogInterval) clearInterval(trainingLogInterval);
     const logsEl = document.getElementById('training-logs');
-    let logOffset = 0;
+    let lastEpoch = 0;
+    let allEpochs = [];
 
     trainingLogInterval = setInterval(async () => {
         try {
-            // Fetch incremental logs
-            const logData = await API.getTrainingLogs(AppState.projectId, logOffset);
-            if (logData.content) {
-                // Strip ANSI escape codes for clean display
-                const clean = logData.content.replace(/\x1b\[[0-9;]*m/g, '');
-                logsEl.textContent += clean;
-                logOffset = logData.offset;
-                logsEl.scrollTop = logsEl.scrollHeight;
+            // Fetch new epoch metrics
+            const logData = await API.getTrainingLogs(AppState.projectId, lastEpoch);
+
+            // Update status message
+            if (logData.status) {
+                const statusEl = document.getElementById('training-status');
+                if (statusEl) statusEl.textContent = logData.status;
             }
 
-            // Also check task completion
+            // Add new epochs to table
+            if (logData.epochs && logData.epochs.length > 0) {
+                const section = document.getElementById('metrics-table-section');
+                section.style.display = 'block';
+                const tbody = document.getElementById('metrics-tbody');
+
+                for (const ep of logData.epochs) {
+                    allEpochs.push(ep);
+                    lastEpoch = ep.epoch;
+
+                    // Add row to table
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${ep.epoch}</strong></td>
+                        <td>${ep.box_loss}</td>
+                        <td>${ep.cls_loss}</td>
+                        <td>${ep.dfl_loss}</td>
+                        <td class="${ep.precision > 0.5 ? 'metric-good' : ''}">${ep.precision}</td>
+                        <td class="${ep.recall > 0.5 ? 'metric-good' : ''}">${ep.recall}</td>
+                        <td class="${ep.mAP50 > 0.5 ? 'metric-good' : ''}">${ep.mAP50}</td>
+                        <td class="${ep.mAP50_95 > 0.3 ? 'metric-good' : ''}">${ep.mAP50_95}</td>
+                        <td>${ep.val_box_loss}</td>
+                        <td>${ep.val_cls_loss}</td>
+                        <td>${ep.val_dfl_loss}</td>
+                    `;
+                    tbody.appendChild(row);
+
+                    // Also update terminal with summary
+                    const summary = `Epoch ${ep.epoch}: P=${ep.precision} R=${ep.recall} mAP50=${ep.mAP50} mAP50-95=${ep.mAP50_95} box=${ep.box_loss} cls=${ep.cls_loss}\n`;
+                    if (lastEpoch === 1) {
+                        logsEl.textContent = summary;
+                    } else {
+                        logsEl.textContent += summary;
+                    }
+                    logsEl.scrollTop = logsEl.scrollHeight;
+                }
+
+                // Update graph
+                drawMetricsGraph(allEpochs);
+            }
+
+            // Check task completion
             const status = await API.getTaskStatus(taskId);
             if (status.status === 'completed') {
                 const now = new Date().toLocaleTimeString();
                 logsEl.textContent += `\n[${now}] Training completed!\n`;
                 if (status.result) {
-                    logsEl.textContent += `Result: ${JSON.stringify(status.result, null, 2)}\n`;
+                    logsEl.textContent += `Model: ${status.result.model_path || 'N/A'}\n`;
+                    logsEl.textContent += `Images used: ${status.result.num_images || 'N/A'}\n`;
                 }
                 clearInterval(trainingLogInterval);
                 trainingLogInterval = null;
@@ -176,19 +247,15 @@ function startLogPolling(taskId) {
             } else if (status.status === 'failed') {
                 const now = new Date().toLocaleTimeString();
                 logsEl.textContent += `\n[${now}] Training FAILED\n`;
-                if (status.error) {
-                    logsEl.textContent += `Error: ${status.error}\n`;
-                }
-                if (status.result && status.result.message) {
-                    logsEl.textContent += `Details: ${status.result.message}\n`;
-                }
+                if (status.error) logsEl.textContent += `Error: ${status.error}\n`;
+                if (status.result && status.result.message) logsEl.textContent += `${status.result.message}\n`;
                 clearInterval(trainingLogInterval);
                 trainingLogInterval = null;
             }
         } catch (e) {
             // ignore polling errors
         }
-    }, 2000);
+    }, 3000);
 }
 
 function drawMetricsGraph(data) {
@@ -200,63 +267,73 @@ function drawMetricsGraph(data) {
     const h = canvas.height;
 
     ctx.clearRect(0, 0, w, h);
-
     if (data.length < 2) return;
 
+    const padL = 60, padR = 20, padT = 30, padB = 30;
+    const graphW = w - padL - padR;
+    const graphH = h - padT - padB;
+
     // Draw grid
-    ctx.strokeStyle = '#e2e8f0';
+    ctx.strokeStyle = '#334155';
     ctx.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
-        const y = 20 + (h - 40) * i / 4;
+    for (let i = 0; i <= 4; i++) {
+        const y = padT + graphH * i / 4;
         ctx.beginPath();
-        ctx.moveTo(60, y);
-        ctx.lineTo(w - 20, y);
+        ctx.moveTo(padL, y);
+        ctx.lineTo(w - padR, y);
         ctx.stroke();
         ctx.fillStyle = '#94a3b8';
         ctx.font = '11px Inter, sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText((1 - i / 4).toFixed(2), 55, y + 4);
+        ctx.fillText((1 - i / 4).toFixed(2), padL - 5, y + 4);
     }
 
-    // Draw loss line
-    const maxLoss = Math.max(...data.map(d => d.loss || 0), 1);
-    const padL = 60, padR = 20, padT = 20, padB = 20;
-    const graphW = w - padL - padR;
-    const graphH = h - padT - padB;
-
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    data.forEach((d, i) => {
+    // Draw x-axis labels
+    ctx.fillStyle = '#94a3b8';
+    ctx.textAlign = 'center';
+    const step = Math.max(1, Math.floor(data.length / 10));
+    for (let i = 0; i < data.length; i += step) {
         const x = padL + (i / (data.length - 1)) * graphW;
-        const y = padT + (1 - (d.loss || 0) / maxLoss) * graphH;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
+        ctx.fillText(data[i].epoch, x, h - 5);
+    }
 
-    // Labels
-    ctx.fillStyle = '#3b82f6';
-    ctx.font = 'bold 12px Inter, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Loss', padL + 5, padT + 12);
-
-    // mAP if available
-    if (data[0].mAP !== undefined) {
-        ctx.strokeStyle = '#22c55e';
+    function drawLine(values, color, maxVal) {
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.beginPath();
         data.forEach((d, i) => {
             const x = padL + (i / (data.length - 1)) * graphW;
-            const y = padT + (1 - (d.mAP || 0)) * graphH;
+            const y = padT + (1 - values[i] / maxVal) * graphH;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         });
         ctx.stroke();
-
-        ctx.fillStyle = '#22c55e';
-        ctx.fillText('mAP', padL + 50, padT + 12);
     }
+
+    // mAP50 (green)
+    drawLine(data.map(d => d.mAP50), '#22c55e', 1);
+    // mAP50-95 (blue)
+    drawLine(data.map(d => d.mAP50_95), '#3b82f6', 1);
+    // Precision (orange)
+    drawLine(data.map(d => d.precision), '#f59e0b', 1);
+    // Recall (purple)
+    drawLine(data.map(d => d.recall), '#a855f7', 1);
+
+    // Legend
+    const legend = [
+        { label: 'mAP50', color: '#22c55e' },
+        { label: 'mAP50-95', color: '#3b82f6' },
+        { label: 'Precision', color: '#f59e0b' },
+        { label: 'Recall', color: '#a855f7' }
+    ];
+    let lx = padL + 10;
+    ctx.font = 'bold 11px Inter, sans-serif';
+    legend.forEach(item => {
+        ctx.fillStyle = item.color;
+        ctx.fillRect(lx, 8, 12, 12);
+        ctx.fillText(item.label, lx + 16, 18);
+        lx += ctx.measureText(item.label).width + 30;
+    });
 }
 
 async function startAutoAnnotation() {
@@ -268,7 +345,7 @@ async function startAutoAnnotation() {
         showToast('Auto-annotation started', 'info');
 
         const logsEl = document.getElementById('training-logs');
-        logsEl.innerHTML += `\n[${new Date().toLocaleTimeString()}] Auto-annotation started (confidence: ${conf})\n`;
+        logsEl.textContent += `\n[${new Date().toLocaleTimeString()}] Auto-annotation started (confidence: ${conf})\n`;
     } catch (e) {
         showToast(`Error: ${e.message}`, 'error');
     }

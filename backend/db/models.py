@@ -34,6 +34,7 @@ class ImageStatus(str, enum.Enum):
     SELECTED = "selected"  # Selected by active learning
     ANNOTATED = "annotated"  # Manually annotated
     AUTO_ANNOTATED = "auto_annotated"  # Auto-annotated by model
+    CORRECTED = "corrected"  # Auto-annotated, reviewed/confirmed
 
 
 class Project(Base):
