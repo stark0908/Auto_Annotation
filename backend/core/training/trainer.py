@@ -42,14 +42,25 @@ class FewShotTrainer:
         # Create symlinks to images (to avoid copying)
         for img in images:
             src = Path(img["file_path"])
+            # Handle path mismatches: stored path might not match current DATA_DIR
+            if not src.exists():
+                # Try reconstructing from DATA_DIR + relative path
+                # Extract the relative portion (projects/xxx/images/filename)
+                parts = str(src).replace('\\', '/')
+                if 'projects/' in parts:
+                    rel = parts[parts.index('projects/'):]
+                    src = Path(settings.DATA_DIR) / rel
             dst = train_images / img["filename"]
             if not dst.exists():
                 try:
-                    os.symlink(src, dst)
-                except:
-                    # If symlink fails, copy
+                    if src.exists():
+                        os.symlink(src.resolve(), dst)
+                    else:
+                        print(f"Warning: source image not found: {src}")
+                except Exception:
                     import shutil
-                    shutil.copy2(src, dst)
+                    if src.exists():
+                        shutil.copy2(src, dst)
         
         # Write label files (YOLO format: class_id center_x center_y width height)
         # Group annotations by image
@@ -88,7 +99,7 @@ class FewShotTrainer:
         with open(data_yaml_path, "w") as f:
             yaml.dump(data_yaml, f)
         
-        print(f"✅ Prepared YOLO dataset at {yolo_dir}")
+        print(f"Prepared YOLO dataset at {yolo_dir}")
         return str(data_yaml_path)
     
     def train(
@@ -103,7 +114,7 @@ class FewShotTrainer:
         Train YOLOv8 model.
         Returns: path to best model weights
         """
-        print(f"🚀 Starting training...")
+        print(f"Starting training...")
         print(f"   Model: {model_name}")
         print(f"   Epochs: {epochs}")
         print(f"   Batch size: {batch_size}")
@@ -127,13 +138,14 @@ class FewShotTrainer:
             copy_paste=0.5,  # Copy-paste augmentation
             lr0=0.001,  # Initial learning rate
             lrf=0.01,  # Final learning rate
-            verbose=True
+            verbose=True,
+            workers=2  # Limit data loader processes to save RAM
         )
         
         # Best model path
         best_model_path = self.models_dir / "train" / "weights" / "best.pt"
         
-        print(f"✅ Training completed!")
+        print(f"Training completed!")
         print(f"   Best model: {best_model_path}")
         
         return str(best_model_path)

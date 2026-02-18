@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     
     # Paths
-    DATA_DIR: str = "./data"
-    MODELS_DIR: str = "./models"
+    DATA_DIR: str = "/data"
+    MODELS_DIR: str = "/models"
     
     # Model Settings
     DEFAULT_EMBEDDING_MODEL: str = "clip"

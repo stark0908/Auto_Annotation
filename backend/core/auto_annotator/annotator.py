@@ -14,9 +14,9 @@ class AutoAnnotator:
     
     def __init__(self, model_path: str):
         """Load trained model."""
-        print(f"📦 Loading model from {model_path}...")
+        print(f"Loading model from {model_path}...")
         self.model = YOLO(model_path)
-        print(f"✅ Model loaded!")
+        print(f"Model loaded!")
     
     def annotate_image(
         self, 
@@ -83,7 +83,7 @@ class AutoAnnotator:
         Annotate multiple images.
         Returns: dict mapping image_path to list of annotations
         """
-        print(f"🔍 Auto-annotating {len(image_paths)} images...")
+        print(f"Auto-annotating {len(image_paths)} images...")
         
         all_annotations = {}
         
@@ -98,5 +98,5 @@ class AutoAnnotator:
             if (i + 1) % 10 == 0:
                 print(f"   Processed {i + 1}/{len(image_paths)} images")
         
-        print(f"✅ Auto-annotation completed!")
+        print(f"Auto-annotation completed!")
         return all_annotations
