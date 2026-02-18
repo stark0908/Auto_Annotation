@@ -148,42 +148,39 @@ async function startTraining() {
 function startLogPolling(taskId) {
     if (trainingLogInterval) clearInterval(trainingLogInterval);
     const logsEl = document.getElementById('training-logs');
-    let lastStatus = '';
-    let metricsData = [];
+    let logOffset = 0;
 
     trainingLogInterval = setInterval(async () => {
         try {
+            // Fetch incremental logs
+            const logData = await API.getTrainingLogs(AppState.projectId, logOffset);
+            if (logData.content) {
+                // Strip ANSI escape codes for clean display
+                const clean = logData.content.replace(/\x1b\[[0-9;]*m/g, '');
+                logsEl.textContent += clean;
+                logOffset = logData.offset;
+                logsEl.scrollTop = logsEl.scrollHeight;
+            }
+
+            // Also check task completion
             const status = await API.getTaskStatus(taskId);
-            const now = new Date().toLocaleTimeString();
-
-            if (status.status !== lastStatus) {
-                logsEl.innerHTML += `[${now}] Status: ${status.status}\n`;
-                lastStatus = status.status;
-            }
-
-            if (status.result && status.result.logs) {
-                logsEl.innerHTML = status.result.logs.map(l => `[${l.time || ''}] ${l.message}`).join('\n');
-            }
-
-            if (status.result && status.result.metrics) {
-                metricsData.push(status.result.metrics);
-                drawMetricsGraph(metricsData);
-            }
-
-            logsEl.scrollTop = logsEl.scrollHeight;
-
             if (status.status === 'completed') {
-                logsEl.innerHTML += `\n[${now}] Training completed!\n`;
+                const now = new Date().toLocaleTimeString();
+                logsEl.textContent += `\n[${now}] Training completed!\n`;
                 if (status.result) {
-                    logsEl.innerHTML += `Result: ${JSON.stringify(status.result, null, 2)}\n`;
+                    logsEl.textContent += `Result: ${JSON.stringify(status.result, null, 2)}\n`;
                 }
                 clearInterval(trainingLogInterval);
                 trainingLogInterval = null;
                 loadReadiness();
             } else if (status.status === 'failed') {
-                logsEl.innerHTML += `\n[${now}] Training FAILED\n`;
+                const now = new Date().toLocaleTimeString();
+                logsEl.textContent += `\n[${now}] Training FAILED\n`;
                 if (status.error) {
-                    logsEl.innerHTML += `Error: ${status.error}\n`;
+                    logsEl.textContent += `Error: ${status.error}\n`;
+                }
+                if (status.result && status.result.message) {
+                    logsEl.textContent += `Details: ${status.result.message}\n`;
                 }
                 clearInterval(trainingLogInterval);
                 trainingLogInterval = null;

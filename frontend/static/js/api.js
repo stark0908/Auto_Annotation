@@ -109,6 +109,9 @@ const API = {
     startAutoAnnotation(projectId, confidenceThreshold = 0.25) {
         return this._fetch(`/training/${projectId}/auto-annotate?confidence_threshold=${confidenceThreshold}`, { method: 'POST' });
     },
+    getTrainingLogs(projectId, offset = 0) {
+        return this._fetch(`/training/${projectId}/logs?offset=${offset}`);
+    },
     getTaskStatus(taskId) {
         return this._fetch(`/training/task/${taskId}`);
     },

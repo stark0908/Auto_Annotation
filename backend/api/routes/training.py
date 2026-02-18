@@ -33,6 +33,36 @@ def start_training(
     }
 
 
+@router.get("/{project_id}/logs")
+def get_training_logs(
+    project_id: str,
+    offset: int = 0
+):
+    """Get training log content. Supports incremental reads via offset."""
+    from config import settings
+    from pathlib import Path
+    
+    log_path = Path(settings.DATA_DIR) / "projects" / project_id / "training.log"
+    
+    if not log_path.exists():
+        return {"content": "", "offset": 0, "complete": False}
+    
+    file_size = log_path.stat().st_size
+    
+    if offset >= file_size:
+        return {"content": "", "offset": offset, "complete": False}
+    
+    with open(log_path, "r", errors="replace") as f:
+        f.seek(offset)
+        content = f.read()
+    
+    return {
+        "content": content,
+        "offset": file_size,
+        "complete": False
+    }
+
+
 @router.post("/{project_id}/auto-annotate")
 def start_auto_annotation(
     project_id: str,

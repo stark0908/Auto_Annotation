@@ -112,43 +112,75 @@ class FewShotTrainer:
     ) -> str:
         """
         Train YOLOv8 model.
+        Captures all output to a log file for frontend streaming.
         Returns: path to best model weights
         """
-        print(f"Starting training...")
-        print(f"   Model: {model_name}")
-        print(f"   Epochs: {epochs}")
-        print(f"   Batch size: {batch_size}")
+        import sys
         
-        # Load pretrained model
-        model = YOLO(model_name)
+        log_file_path = self.project_dir / "training.log"
         
-        # Train
-        results = model.train(
-            data=data_yaml_path,
-            epochs=epochs,
-            batch=batch_size,
-            imgsz=img_size,
-            project=str(self.models_dir),
-            name="train",
-            exist_ok=True,
-            # Few-shot optimizations
-            patience=20,  # Early stopping
-            mosaic=0.5,  # Mosaic augmentation
-            mixup=0.3,  # MixUp augmentation
-            copy_paste=0.5,  # Copy-paste augmentation
-            lr0=0.001,  # Initial learning rate
-            lrf=0.01,  # Final learning rate
-            verbose=True,
-            workers=2  # Limit data loader processes to save RAM
-        )
+        # TeeWriter: writes to both original stream and log file
+        class TeeWriter:
+            def __init__(self, original, log_fh):
+                self.original = original
+                self.log_fh = log_fh
+            def write(self, text):
+                self.original.write(text)
+                self.original.flush()
+                self.log_fh.write(text)
+                self.log_fh.flush()
+            def flush(self):
+                self.original.flush()
+                self.log_fh.flush()
         
-        # Best model path
-        best_model_path = self.models_dir / "train" / "weights" / "best.pt"
+        log_fh = open(log_file_path, "w")
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        sys.stdout = TeeWriter(old_stdout, log_fh)
+        sys.stderr = TeeWriter(old_stderr, log_fh)
         
-        print(f"Training completed!")
-        print(f"   Best model: {best_model_path}")
+        try:
+            print(f"Starting training...")
+            print(f"   Model: {model_name}")
+            print(f"   Epochs: {epochs}")
+            print(f"   Batch size: {batch_size}")
+            print(f"   Log file: {log_file_path}")
+            
+            # Load pretrained model
+            model = YOLO(model_name)
+            
+            # Train
+            results = model.train(
+                data=data_yaml_path,
+                epochs=epochs,
+                batch=batch_size,
+                imgsz=img_size,
+                project=str(self.models_dir),
+                name="train",
+                exist_ok=True,
+                # Few-shot optimizations
+                patience=20,  # Early stopping
+                mosaic=0.5,  # Mosaic augmentation
+                mixup=0.3,  # MixUp augmentation
+                copy_paste=0.5,  # Copy-paste augmentation
+                lr0=0.001,  # Initial learning rate
+                lrf=0.01,  # Final learning rate
+                verbose=True,
+                workers=2  # Limit data loader processes to save RAM
+            )
+            
+            # Best model path
+            best_model_path = self.models_dir / "train" / "weights" / "best.pt"
+            
+            print(f"Training completed!")
+            print(f"   Best model: {best_model_path}")
+            
+            return str(best_model_path)
         
-        return str(best_model_path)
+        finally:
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            log_fh.close()
     
     def get_latest_model(self) -> str:
         """Get path to the most recently trained model."""
@@ -156,3 +188,7 @@ class FewShotTrainer:
         if best_model.exists():
             return str(best_model)
         return None
+    
+    def get_log_file(self) -> str:
+        """Get path to the training log file."""
+        return str(self.project_dir / "training.log")
