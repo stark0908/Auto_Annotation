@@ -158,15 +158,15 @@ class FewShotTrainer:
                 project=str(self.models_dir),
                 name="train",
                 exist_ok=True,
-                # Few-shot optimizations
-                patience=20,  # Early stopping
-                mosaic=0.5,  # Mosaic augmentation
-                mixup=0.3,  # MixUp augmentation
-                copy_paste=0.5,  # Copy-paste augmentation
-                lr0=0.001,  # Initial learning rate
-                lrf=0.01,  # Final learning rate
+                patience=20,
+                # Disable RAM-heavy augmentations (each loads extra images per batch)
+                mosaic=0.0,
+                mixup=0.0,
+                copy_paste=0.0,
+                lr0=0.001,
+                lrf=0.01,
                 verbose=True,
-                workers=2  # Limit data loader processes to save RAM
+                workers=1
             )
             
             # Best model path

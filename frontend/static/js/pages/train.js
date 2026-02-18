@@ -32,8 +32,8 @@ function renderTrainPage() {
                         oninput="document.getElementById('epochs-value').textContent=this.value">
                 </div>
                 <div class="slider-group">
-                    <label>Batch Size <span class="slider-value" id="batch-value">16</span></label>
-                    <input type="range" min="2" max="64" step="2" value="16" id="batch-slider"
+                    <label>Batch Size <span class="slider-value" id="batch-value">8</span></label>
+                    <input type="range" min="2" max="64" step="2" value="8" id="batch-slider"
                         oninput="document.getElementById('batch-value').textContent=this.value">
                 </div>
             </div>
