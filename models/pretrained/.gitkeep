@@ -1,0 +1,6 @@
+# Placeholder for pretrained models
+# Download pretrained models here:
+# - yolov8n.pt
+# - clip models (auto-downloaded by transformers)
+
+# Models will be downloaded automatically on first use

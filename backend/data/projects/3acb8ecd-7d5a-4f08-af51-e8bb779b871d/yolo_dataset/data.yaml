@@ -1,0 +1,5 @@
+names:
+  0: CAR
+path: /app/data/projects/3acb8ecd-7d5a-4f08-af51-e8bb779b871d/yolo_dataset
+train: images/train
+val: images/train

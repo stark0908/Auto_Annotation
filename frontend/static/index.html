@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoAnnotate</title>
+    <meta name="description" content="Intelligent annotation platform with active learning">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h1>AutoAnnotate</h1>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#projects" data-page="projects" class="nav-link active">
+                    <span class="nav-icon">P</span> Projects
+                </a></li>
+            <li><a href="#upload" data-page="upload" class="nav-link">
+                    <span class="nav-icon">U</span> Upload
+                </a></li>
+            <li><a href="#annotate" data-page="annotate" class="nav-link">
+                    <span class="nav-icon">A</span> Annotate
+                </a></li>
+            <li><a href="#train" data-page="train" class="nav-link">
+                    <span class="nav-icon">T</span> Train
+                </a></li>
+            <li><a href="#review" data-page="review" class="nav-link">
+                    <span class="nav-icon">R</span> Review
+                </a></li>
+        </ul>
+
+        <div id="current-project-indicator" class="project-indicator" style="display:none;">
+            <small>Current Project</small>
+            <strong id="current-project-name">-</strong>
+        </div>
+
+        <div id="task-panel" class="task-panel" style="display:none;">
+            <h3>Background Tasks</h3>
+            <div id="task-list"></div>
+        </div>
+    </nav>
+
+    <main id="main-content">
+        <div id="page-content"></div>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script src="/static/js/api.js"></script>
+    <script src="/static/js/components/tasks.js"></script>
+    <script src="/static/js/components/canvas.js"></script>
+    <script src="/static/js/pages/projects.js"></script>
+    <script src="/static/js/pages/upload.js"></script>
+    <script src="/static/js/pages/annotate.js"></script>
+    <script src="/static/js/pages/train.js"></script>
+    <script src="/static/js/pages/review.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
